@@ -556,8 +556,11 @@ class CodeGenerator(object):
         return rendered + delimiter.join(args) + end
 
     def render_table(self, model):
-        rendered = 't_{0} = Table(\n{1}{0!r}, metadata,\n'.format(
-            model.table.name, self.indentation)
+        has_many_args =  len(model.table.columns + list(model.table.constraints) + list(model.table.indexes)) > 100
+
+        rendered = 't_{0} = Table(\n{1}{0!r}, {2}metadata,\n'.format(
+            ModelClass._convert_to_valid_identifier(model.table.name), self.indentation,
+                '*[ ' if has_many_args else '')
 
         for column in model.table.columns:
             rendered += '{0}{1},\n'.format(self.indentation, self.render_column(column, True))
@@ -577,7 +580,7 @@ class CodeGenerator(object):
         if model.schema:
             rendered += "{0}schema='{1}',\n".format(self.indentation, model.schema)
 
-        return rendered.rstrip('\n,') + '\n)\n'
+        return rendered.rstrip('\n,') + '\n{0})\n'.format('] ' if has_many_args else '')
 
     def render_class(self, model):
         rendered = 'class {0}({1}):\n'.format(model.name, model.parent_name)
@@ -611,6 +614,8 @@ class CodeGenerator(object):
             if len(table_args) == 1:
                 table_args[0] += ','
             table_args_joined = ',\n{0}{0}'.format(self.indentation).join(table_args)
+            if len(table_args) > 255:
+                table_args_joined = '*[\n{0}\n]'.format(table_args_joined)
             rendered += '{0}__table_args__ = (\n{0}{0}{1}\n{0})\n'.format(
                 self.indentation, table_args_joined)
 
